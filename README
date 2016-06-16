@@ -1,0 +1,16 @@
+pam_http allows to authenticate via http request
+
+PAM configuration example:
+auth      required    pam_http.so   conf=/etc/pam_http.conf
+account   required    pam_permit.so
+
+pam_http.conf example:
+auth_url = "http://api.myapp.com/user/login";
+auth_method = "GET";
+auth_username_field = "username";
+auth_password_field = "password";
+
+Enabling PAM debug:
+Add the following line to /etc/syslog.conf
+*.debug     /var/log/debug.log
+service syslog restart
