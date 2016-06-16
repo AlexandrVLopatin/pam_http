@@ -15,6 +15,7 @@
 #define DEFAULT_METHOD "GET"
 #define DEFAULT_USERNAME_FIELD "username"
 #define DEFAULT_PASSWORD_FIELD "password"
+#define DEFAULT_CURL_TIMEOUT 10
 
 static const char* HTTP_METHOD_POST = "POST";
 static const char* HTTP_METHOD_GET  = "GET";
@@ -27,6 +28,7 @@ struct config_auth
     const char *c_method;
     const char *c_username_field;
     const char *c_password_field;
+    long long timeout;
 };
 
 static void pam_http_syslog(int priority, const char *format, ...)
@@ -82,6 +84,9 @@ static int read_config_auth(char config_file[BUFSIZE], struct config_auth *s_aut
 
     s_auth->c_username_field = config_get_string(&cfg, "auth_username_field", DEFAULT_USERNAME_FIELD);
     s_auth->c_password_field = config_get_string(&cfg, "auth_password_field", DEFAULT_PASSWORD_FIELD);
+    if (!config_lookup_int64(&cfg, "auth_timeout", &s_auth->timeout)) {
+        s_auth->timeout = DEFAULT_CURL_TIMEOUT;
+    }
 
     config_destroy(&cfg);
     return 1;
@@ -189,6 +194,7 @@ static int pam_http_request(struct config_auth* s_auth, const char* user, const 
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, s_auth->timeout);
 
         res = curl_easy_perform(curl);
         if (res != CURLE_OK)

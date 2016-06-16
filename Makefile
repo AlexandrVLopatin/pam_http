@@ -2,7 +2,7 @@ CC = gcc
 SOURCES = pam_http.c
 OBJECT = pam_http.o
 BINARY = pam_http.so
-CFLAGS += -fPIC -Werror -Wextra -pedantic -c
+CFLAGS += -fPIC -Werror -Wextra -pedantic -std=gnu99 -c
 LDFLAGS = --shared -lcurl -lconfig
 LIBSECDIR = /lib/security
 
