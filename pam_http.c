@@ -176,36 +176,42 @@ static int pam_http_request(struct config_auth* s_auth, const char* user, const 
         esc_user = curl_easy_escape(curl, user, 0);
         esc_password = curl_easy_escape(curl, password, 0);
 
-        if (!strncmp(s_auth->c_method, HTTP_METHOD_GET, 3)) {
-            has_parm = strstr(s_auth->c_auth_url, "?");
-            sep = (has_parm == NULL) ? "?" : "&";
-            snprintf(auth_url, BUFSIZE, "%s%s%s=%s&%s=%s", s_auth->c_auth_url, sep,
-                s_auth->c_username_field, esc_user, s_auth->c_password_field, esc_password);
+        if (!esc_user || !esc_password) {
+            pam_http_syslog(LOG_ALERT, "could not escape credentials");
+            retval = PAM_CRED_ERR;
         } else {
-            strncpy(auth_url, s_auth->c_auth_url, BUFSIZE);
-            snprintf(post_fields, BUFSIZE, "%s=%s&%s=%s", s_auth->c_username_field,
-                esc_user, s_auth->c_password_field, esc_password);
-            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_fields);
+            if (!strncmp(s_auth->c_method, HTTP_METHOD_GET, 3)) {
+                has_parm = strstr(s_auth->c_auth_url, "?");
+                sep = (has_parm == NULL) ? "?" : "&";
+                snprintf(auth_url, BUFSIZE, "%s%s%s=%s&%s=%s", s_auth->c_auth_url, sep,
+                    s_auth->c_username_field, esc_user, s_auth->c_password_field, esc_password);
+            } else {
+                strncpy(auth_url, s_auth->c_auth_url, BUFSIZE);
+                snprintf(post_fields, BUFSIZE, "%s=%s&%s=%s", s_auth->c_username_field,
+                    esc_user, s_auth->c_password_field, esc_password);
+                curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_fields);
+            }
+
+            curl_easy_setopt(curl, CURLOPT_URL, auth_url);
+            curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+            curl_easy_setopt(curl, CURLOPT_TIMEOUT, s_auth->timeout);
+
+            res = curl_easy_perform(curl);
+            if (res != CURLE_OK) {
+                pam_http_syslog(LOG_ALERT, "could not perform http request: %s %s:  %s",
+                    s_auth->c_method, auth_url, curl_easy_strerror(res));
+                retval = PAM_SERVICE_ERR;
+            } else {
+                curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+                retval = http_code == s_auth->success_code ? PAM_SUCCESS : PAM_AUTH_ERR;
+            }
+
+            curl_free(esc_user);
+            curl_free(esc_password);
         }
 
-        curl_easy_setopt(curl, CURLOPT_URL, auth_url);
-        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, s_auth->timeout);
-
-        res = curl_easy_perform(curl);
-        if (res != CURLE_OK) {
-            pam_http_syslog(LOG_ALERT, "could not perform http request: %s %s:  %s",
-                s_auth->c_method, auth_url, curl_easy_strerror(res));
-            retval = PAM_SERVICE_ERR;
-        } else {
-            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-            retval = http_code == s_auth->success_code ? PAM_SUCCESS : PAM_AUTH_ERR;
-        }
-
-        curl_free(esc_user);
-        curl_free(esc_password);
         curl_easy_cleanup(curl);
     } else {
         pam_http_syslog(LOG_ALERT, "could not init curl");
