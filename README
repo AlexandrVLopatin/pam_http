@@ -9,7 +9,8 @@ auth_url = "http://api.myapp.com/user/login";
 auth_method = "GET";
 auth_username_field = "username";
 auth_password_field = "password";
-auth_timeout = 10;
+auth_timeout = 60;
+auth_success_code = 200;
 
 Enabling PAM debug:
 Add the following line to /etc/syslog.conf

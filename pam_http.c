@@ -19,6 +19,7 @@
 #define DEFAULT_METHOD "GET"
 #define DEFAULT_USERNAME_FIELD "username"
 #define DEFAULT_PASSWORD_FIELD "password"
+#define DEFAULT_HTTP_SUCCESS_CODE 200
 #define DEFAULT_CURL_TIMEOUT 10
 
 static const char* HTTP_METHOD_POST = "POST";
@@ -32,6 +33,7 @@ struct config_auth {
     const char* c_username_field;
     const char* c_password_field;
     long long timeout;
+    long long success_code;
 };
 
 static void pam_http_syslog(int priority, const char* format, ...)
@@ -85,6 +87,9 @@ static int read_config_auth(char config_file[BUFSIZE], struct config_auth* s_aut
     s_auth->c_password_field = config_get_string(&cfg, "auth_password_field", DEFAULT_PASSWORD_FIELD);
     if (!config_lookup_int64(&cfg, "auth_timeout", &s_auth->timeout)) {
         s_auth->timeout = DEFAULT_CURL_TIMEOUT;
+    }
+    if (!config_lookup_int64(&cfg, "auth_success_code", &s_auth->success_code)) {
+        s_auth->success_code = DEFAULT_HTTP_SUCCESS_CODE;
     }
 
     config_destroy(&cfg);
@@ -196,7 +201,7 @@ static int pam_http_request(struct config_auth* s_auth, const char* user, const 
             retval = PAM_SERVICE_ERR;
         } else {
             curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-            retval = http_code == 200 ? PAM_SUCCESS : PAM_AUTH_ERR;
+            retval = http_code == s_auth->success_code ? PAM_SUCCESS : PAM_AUTH_ERR;
         }
 
         curl_free(esc_user);
