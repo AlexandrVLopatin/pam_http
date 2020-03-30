@@ -44,6 +44,7 @@ static void pam_http_syslog(int priority, const char* format, ...)
     openlog("pam_http", LOG_CONS | LOG_PID, LOG_AUTH);
     vsyslog(priority, format, args);
     closelog();
+    va_end(args);
 }
 
 static char* config_get_string(config_t* cfg, const char* name, const char* def_value)
